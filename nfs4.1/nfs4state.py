@@ -215,10 +215,10 @@ class DictTree(object):
     def itervalues(self):
         def myiter(d, depth):
             if depth == 1:
-                for value in d.itervalues():
+                for value in d.values():
                     yield value
             else:
-                for sub_d in d.itervalues():
+                for sub_d in d.values():
                     for i in myiter(sub_d, depth - 1):
                         yield i
         for i in myiter(self._data, self._depth):
@@ -250,7 +250,7 @@ class FileStateTyped(object):
         # NOTE we are only using 9 bytes of 12
         # NOTE this needs to be client-wide, since keys of client.state[]
         # must be unique
-        return "%s%s" % (struct.pack("!xxxB", self.type),
+        return b"%s%s" % (struct.pack("!xxxB", self.type),
                          client.get_new_other())
 
     def grab_entry(self, key, klass):
@@ -290,13 +290,13 @@ class DelegState(FileStateTyped):
             return True
         # Find any delegation - use fact that all are of same type
         for e in self._tree.itervalues():
+            # The only thing that doesn't conflict is access==READ with READ deleg
+            if e.deleg_type == OPEN_DELEGATE_READ and \
+                    not (access & OPEN4_SHARE_ACCESS_WRITE):
+                return False
+            else:
+                return True
             break
-        # The only thing that doesn't conflict is access==READ with READ deleg
-        if e.deleg_type == OPEN_DELEGATE_READ and \
-                not (access & OPEN4_SHARE_ACCESS_WRITE):
-            return False
-        else:
-            return True
 
     def recall_conflicting_delegations(self, dispatcher, client, access, deny):
         # NOTE OK to have extra access/deny flags

@@ -6,10 +6,7 @@ from nfs4lib import NFS4Error
 import struct
 import logging
 from locking import Lock, RWLock
-try:
-    import cStringIO.StringIO as StringIO
-except:
-    from io import StringIO
+from io import BytesIO
 import time
 from xdrdef.nfs4_pack import NFS4Packer
 
@@ -182,7 +179,7 @@ class FSObject(object):
 
     def init_file(self):
         """Hook for subclasses that want to use their own file class"""
-        return StringIO()
+        return BytesIO()
 
     def _init_hook(self):
         pass
@@ -671,7 +668,7 @@ class RootFS(FileSystem):
         self.fattr4_supported_attrs |= 1 << FATTR4_MAXWRITE
         self.fattr4_supported_attrs |= 1 << FATTR4_MAXREAD
         self.fsid = (0,0)
-        self.read_only = True
+        self.read_only = False
 
     def alloc_id(self):
         self._nextid += 1
@@ -711,7 +708,7 @@ class ConfigObj(FSObject):
         self._reset()
 
     def _reset(self):
-        self.file = StringIO()
+        self.file = BytesIO()
         self.file.write("# %s\n" % self.configline.comment)
         value = self.configline.value
         if type(value) is list:
@@ -931,7 +928,7 @@ import shutil
 import shelve
 
 class StubFS_Disk(FileSystem):
-    _fs_data_name = "fs_info" # DB name where we store persistent data
+    _fs_data_name = b"fs_info" # DB name where we store persistent data
     def __init__(self, path, reset=False, fsid=None):
         self._nextid = 0
         self.path = path
@@ -991,17 +988,17 @@ class StubFS_Disk(FileSystem):
         self.root = self.find(d["root"])
 
     def find_on_disk(self, id):
-        fd = open(os.path.join(self.path, "m_%i" % id), "r")
+        fd = open(os.path.join(self.path, b"m_%i" % id), "rb")
         # BUG - need to trap for file not found error
         meta = pickle.load(fd)
         fd.close()
         obj = self.objclass(self, id, meta)
         if obj.type == NF4REG:
-            fd = open(os.path.join(self.path, "d_%i" % id), "r")
-            obj.file = StringIO(fd.read())
+            fd = open(os.path.join(self.path, b"d_%i" % id), "rb")
+            obj.file = BytesIO(fd.read())
             fd.close()
         elif obj.type == NF4DIR:
-            fd = open(os.path.join(self.path, "d_%i" % id), "r")
+            fd = open(os.path.join(self.path, b"d_%i" % id), "rb")
             obj.entries = pickle.load(fd)
             fd.close()
         return obj
@@ -1018,10 +1015,10 @@ class StubFS_Disk(FileSystem):
             self._fs_data["_nextid"] = id
             self._fs_data.sync()
             # Create meta-data file
-            fd = open(os.path.join(self.path, "m_%i" % id), "w")
+            fd = open(os.path.join(self.path, b"m_%i" % id), "wb")
             fd.close()
             # Create data file
-            # fd = open(os.path.join(self.path, "d_%i" % id), "w")
+            # fd = open(os.path.join(self.path, b"d_%i" % id), "wb")
             # fd.close()
         finally:
             self._disk_lock.release()
@@ -1032,11 +1029,11 @@ class StubFS_Disk(FileSystem):
         self._disk_lock.acquire()
         try:
             # Remove meta-data file
-            meta = os.path.join(self.path, "m_%i" % id)
+            meta = os.path.join(self.path, b"m_%i" % id)
             if os.path.isfile(meta):
                 os.remove(meta)
             # Remove data file
-            data = os.path.join(self.path, "d_%i" % id)
+            data = os.path.join(self.path, b"d_%i" % id)
             if os.path.isfile(data):
                 os.remove(data)
         finally:
@@ -1049,20 +1046,20 @@ class StubFS_Disk(FileSystem):
         try:
             # Create meta-data file
             log_fs.debug("writing metadata for id=%i" % id)
-            fd = open(os.path.join(self.path, "m_%i" % id), "w")
+            fd = open(os.path.join(self.path, b"m_%i" % id), "wb")
             log_fs.debug("%r" % obj.meta.__dict__)
             pickle.dump(obj.meta, fd)
             fd.close()
             if obj.type == NF4REG:
                 # Create data file
-                fd = open(os.path.join(self.path, "d_%i" % id), "w")
+                fd = open(os.path.join(self.path, b"d_%i" % id), "wb")
                 obj.file.seek(0)
                 fd.write(obj.file.read())
                 fd.close()
             elif obj.type == NF4DIR:
                 # Create dir entries
                 log_fs.debug("writing dir %r" % obj.entries.keys())
-                fd = open(os.path.join(self.path, "d_%i" % id), "w")
+                fd = open(os.path.join(self.path, b"d_%i" % id), "wb")
                 pickle.dump(obj.entries, fd)
                 fd.close()
         finally:
@@ -1408,7 +1405,7 @@ class FSLayoutFSObj(FSObject):
     def init_file(self):
         self.stripe_size = NFL4_UFLG_STRIPE_UNIT_SIZE_MASK & 0x4000
         if self.fs.dsdevice.mdsds:
-            return StringIO()
+            return BytesIO()
         else:
             return FileLayoutFile(self)
 
