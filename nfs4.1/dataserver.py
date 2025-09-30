@@ -111,7 +111,7 @@ class DataServer41(DataServer):
                 self.reset()
             else:
                 log.error("Unhandled status %s from DS %s" %
-                          (nfsstat4[res.status], self.server))
+                          (const4.nfsstat4[res.status], self.server))
                 raise Exception("Dataserver communication error")
 
     def connect(self):

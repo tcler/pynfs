@@ -14,6 +14,14 @@ log_o = logging.getLogger("fs.obj")
 log_fs = logging.getLogger("fs")
 logging.addLevelName(5, "FUNCT")
 
+def _hasattr(obj, attr):
+    try:
+        getattr(obj, attr)
+        return True
+    except:
+        pass
+    return False
+
 class MetaData(object):
     """Contains everything that needs to be stored
 
@@ -58,7 +66,7 @@ class FSObject(object):
     def _getsize_locked(self):
         # STUB
         if self.fattr4_type == NF4REG:
-            if hasattr(self.file, "__len__"):
+            if _hasattr(self.file, "__len__"):
                 return len(self.file)
             else:
                 orig = self.file.tell()
@@ -185,7 +193,7 @@ class FSObject(object):
         pass
 
     def __setattr__(self, name, value):
-        if name != "meta" and hasattr(self.meta, name):
+        if name != "meta" and _hasattr(self.meta, name):
             setattr(self.meta, name, value)
         else:
             object.__setattr__(self, name, value)
@@ -317,7 +325,8 @@ class FSObject(object):
                                     tag = "attr %i not writable" % attr)
                 name = "fattr4_%s" % nfs4lib.attr_name(attr)
                 # Note all writable attrs are object attrs
-                if hasattr(self, name):
+
+                if _hasattr(self, name):
                     base = self
                 else:
                     base = self.meta
@@ -961,7 +970,7 @@ class StubFS_Disk(FileSystem):
         d["root"] = self.root.id
         d["fsid"] = self.fsid
         for attr in dir(self):
-            if attr.startswith("fattr4_") and not hasattr(self.__class__, attr):
+            if attr.startswith("fattr4_") and not _hasattr(self.__class__, attr):
                 d[attr] = getattr(self, attr)
         d.sync()
 
